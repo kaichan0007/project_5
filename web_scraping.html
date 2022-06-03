@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>html,body{height:100%;}body{padding:0;margin:0;}h1{padding:0;margin:0;font-size:30px;}div{float:left;}</style>
+</head>
+
+<body>
+
+<header>
+    <h1>会社情報検索</h1>
+</header>
+
+<!-- MAP[START] -->
+<div id="myMap" style='width:50%;height:99%;float:left;'></div>
+<!-- MAP[END] -->
+<!--Directions[START]-->
+
+<div style="float:none">
+  <h1>会社名</h1>
+  <br>
+  <input type="text" id="company_code" value="会社名">
+  <button id="read_data">適時開示情報読み込み</button>
+  <br>
+  <!-- <iframe id="company_data_pdf" src="https://s3-ap-northeast-1.amazonaws.com/cdn.aprico-media.com/resources/sample.pdf" width="500px" height="500px"></iframe> -->
+  <iframe id="company_data_pdf" src="https://www.release.tdnet.info/inbs/140120220603570036.pdf" width="500px" height="500px"></iframe>
+
+</div>
+
+<div>
+  <br>
+  <h1>会社住所</h1>
+  <br>
+  From:<input type="text" id="from" value="現在地">
+  To:<input id="to" value="東京都千代田区丸の内2-3-1">
+  <select id="mode">
+      <option value="walking">walking</option>
+      <option value="driving">driving</option>
+  </select>
+  <input type="button" id="search" value="ルート検索">
+</div>
+<div id="direction"></div>
+<!-- Directions[END] -->
+
+<script src="js/jquery-3.5.1.min.js"></script>
+<script>
+  $("#read_data").on('click', click_event);
+
+  let queried_data;
+
+  function click_event() {
+    let query_keyword = document.getElementById("company_code").value;
+    //alert(query_keyword);
+
+    // $.get() を使う[開始]
+    $.get("./data/company_data.json", function (data) {
+      console.log(data);
+      queried_data = data.items;
+      console.log(data);
+      console.log(data.items); // 配列が取得できる
+      let items = data.items;
+      // let view = "<div id='list_search'>"
+      items.forEach(function (item) {
+        if(item.Tdnet.company_name==query_keyword){
+          //alert("match!!");
+          //alert(item.Tdnet.document_url);
+          $("#company_data_pdf").attr("src", item.Tdnet.document_url);
+          window.open(item.Tdnet.document_url);
+        }
+      // console.log(item.volumeInfo.title);
+      // view += "<ul><li id='" + item.id + "'>題名: " + item.volumeInfo.title + " 出版社: " + item.volumeInfo.publisher + "</li></ul>"
+      });
+      // view += "</div>"
+      // 変数に⼊った⽂字列をを表⽰
+      //$("#content").html(view);
+    });
+    // $.get() を使う[終了]
+
+  }
+</script> 
+
+<script src="https://www.bing.com/api/maps/mapcontrol?callback=GetMap&key=Aj6whmeASYLEal28k02U08Xy_5qOaa0hqmL0FT8XE_WHMVo8o9vQm2o2N_KP2ENK" async defer></script>
+<script src="./js/BmapQuery.js"></script>
+<script>
+
+//Main:位置情報を取得する処理 //getCurrentPosition :or: watchPosition
+navigator.geolocation.getCurrentPosition(mapsInit, mapsError, set);
+
+let current_location;
+
+//1．位置情報の取得に成功した時の処理
+function mapsInit(position) {
+    //lat=緯度、lon=経度 を取得
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    current_location = `${lat},${lon}`;    
+};
+
+//2． 位置情報の取得に失敗した場合の処理
+function mapsError(error) {
+  let e = "";
+  if (error.code == 1) { //1＝位置情報取得が許可されてない（ブラウザの設定）
+    e = "位置情報が許可されてません";
+  }
+  if (error.code == 2) { //2＝現在地を特定できない
+    e = "現在位置を特定できません";
+  }
+  if (error.code == 3) { //3＝位置情報を取得する前にタイムアウトになった場合
+    e = "位置情報を取得する前にタイムアウトになりました";
+  }
+  alert("エラー：" + e);
+};
+
+//3.位置情報取得オプション
+var set ={
+  enableHighAccuracy: true, //より高精度な位置を求める
+  maximumAge: 20000,        //最後の現在地情報取得が20秒以内であればその情報を再利用する設定
+  timeout: 10000            //10秒以内に現在地情報を取得できなければ、処理を終了
+};
+
+//****************************************************************************************
+// BingMaps&BmapQuery
+//****************************************************************************************
+//Init
+function GetMap(){
+    //------------------------------------------------------------------------
+    //1. Instance
+    //------------------------------------------------------------------------
+    const map = new Bmap("#myMap");
+
+    //------------------------------------------------------------------------
+    //2. Display Map
+    //   startMap(lat, lon, "MapType", Zoom[1~20]);
+    //   MapType:[load, aerial,canvasDark,canvasLight,birdseye,grayscale,streetside]
+    //--------------------------------------------------
+    map.startMap(35.665100, 139.712000, "load", 15);
+
+    //------------------------------------------------------------------------
+    //3. Directions
+    // map.direction("#rootView", "from" , "to", waypoint[array]);
+    // !! 日本地図で表示してる場合のみルート検索可能（各国毎）以下パラメータ指定で制御も可能 !!
+    // +  [ English => https://www.bing.com/...&setLang=en&setMkt=en-US ]
+    // +  [ Japan   => https://www.bing.com/...&setLang=ja&setMkt=ja-JP ]
+    //------------------------------------------------------------------------
+    document.getElementById("search").onclick = function () {
+        //Get From,To
+        let from  = document.getElementById("from").value;  //StartPoint
+        let to    = document.getElementById("to").value;    //EndPoint
+        let mode  = document.getElementById("mode").value;  //RouteMode[walking,driving]
+        //経由地あり
+        //const array = ["新宿", "恵比寿"];                       //Waypoints...
+        //map.direction("#direction", mode, from, to, array);  //Direction Methed
+
+        if(from=="現在地"){
+          from = current_location;
+        };
+
+        console.log(from, to);
+
+        //経由地なし
+        map.direction("#direction", mode, from , to, []);
+
+    };
+
+    //window.open("https:\/\/www.release.tdnet.info\/inbs\/140120220603570440.pdf");
+
+}
+
+</script>
+
+</body>
+</html>
